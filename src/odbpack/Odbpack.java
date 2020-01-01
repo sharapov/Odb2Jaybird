@@ -9,16 +9,20 @@ package odbpack;
 import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.file.FileAlreadyExistsException;
+import java.nio.file.FileSystemException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.sql.SQLException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Enumeration;
+import java.util.ResourceBundle;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import java.util.zip.ZipOutputStream;
@@ -31,21 +35,26 @@ import org.firebirdsql.management.FBBackupManager;
  */
 public class Odbpack {
 
+    private static final ResourceBundle I18N = ResourceBundle.getBundle("odbpack/locale/i18n");
+    private static boolean cli = false;
+
     /**
      * @param args the command line arguments
+     * @throws java.io.FileNotFoundException
+     * @throws java.nio.file.FileSystemException
      */
-    public static void main(String[] args) {
+    public static void main(String[] args) throws FileNotFoundException, FileSystemException {
         String[][] expectedArgs = {{"o",
             "onbak",
-            "not create backup file for odb (default=yes)"},
+            I18N.getString("option.dont_create_backup_odb")},
         {"d",
             "dnbak",
-            "not create backup file for fdb (default=yes)"},
+            I18N.getString("option.dont_create_backup_fdb")},
         {"r",
             "removefdb",
-            "remove fdb (default=no)"}
+            I18N.getString("option.remove_fdb")}
         };
-
+        cli = true;
         CmdLineArgs cmdLineArgs = new CmdLineArgs(args, expectedArgs);
         if (cmdLineArgs.getMainArgs().size() >= 3) {
             switch (cmdLineArgs.getMainArgs().get(0)) {
@@ -56,10 +65,10 @@ public class Odbpack {
                     Odbpack.packOdb(cmdLineArgs.getMainArgs().get(1), cmdLineArgs.getMainArgs().get(2), cmdLineArgs);
                     break;
                 default:
-                    System.out.println("odbpack {unpack|pack} name.odb name.fdb");
+                    System.out.println(I18N.getString("rule.odbpack"));
             }
         } else {
-            System.out.println("odbpack {unpack|pack} name.odb name.fdb");
+            System.out.println(I18N.getString("rule.odbpack"));
         }
     }
 
@@ -69,11 +78,23 @@ public class Odbpack {
         File fOdbname = new File(odbname);
         try {
             if (!new File(dbname).exists()) {
-                System.out.println("File not found " + new File(dbname).getAbsolutePath());
+                if (cli) {
+                    System.out.println(java.text.MessageFormat.format(I18N.getString("msg.file_not_found"), new Object[]{
+                        new File(dbname).getAbsolutePath()}));
+                } else {
+                    throw new FileNotFoundException(java.text.MessageFormat.format(I18N.getString("msg.file_not_found"), new Object[]{
+                        new File(dbname).getAbsolutePath()}));
+                }
                 return;
             }
             if (!fOdbname.exists()) {
-                System.out.println("File not found " + fOdbname.getAbsolutePath());
+                if (cli) {
+                    System.out.println(java.text.MessageFormat.format(I18N.getString("msg.file_odb_not_found"), new Object[]{
+                        fOdbname.getAbsolutePath()}));
+                } else {
+                    throw new FileNotFoundException(java.text.MessageFormat.format(I18N.getString("msg.file_odb_not_found"), new Object[]{
+                        fOdbname.getAbsolutePath()}));
+                }
                 return;
             }
             String odbpath = new File(fOdbname.getAbsolutePath()).getParent() + File.separatorChar
@@ -81,7 +102,13 @@ public class Odbpack {
             String odbpathbak = new File(fOdbname.getAbsolutePath()).getParent() + File.separatorChar
                     + StringUtils.removeExtension(fOdbname.getName()) + "_" + dateFormet.format(new Date()) + "." + StringUtils.getExtension(fOdbname.getName());
             if (new File(odbpathbak).exists()) {
-                System.out.println("File exists " + odbpathbak);
+                if (cli) {
+                    System.out.println(java.text.MessageFormat.format(I18N.getString("msg.file_exists"), new Object[]{
+                        odbpathbak}));
+                } else {
+                    throw new FileAlreadyExistsException(java.text.MessageFormat.format(I18N.getString("msg.file_exists"), new Object[]{
+                        odbpathbak}));
+                }
                 return;
             }
             Files.copy(Paths.get(odbpath), Paths.get(odbpathbak));
@@ -147,17 +174,35 @@ public class Odbpack {
         }
     }
 
-    static public String unpackOdb(String odbname, String dbname, CmdLineArgs cmdLineArgs) {
+    static public String unpackOdb(String odbname, String dbname, CmdLineArgs cmdLineArgs) throws FileNotFoundException, FileAlreadyExistsException, FileSystemException {
         if (dbname != null && new File(dbname).exists()) {
-            System.out.println("File exists " + dbname);
+            if (cli) {
+                System.out.println(java.text.MessageFormat.format(I18N.getString("msg.file_exists"), new Object[]{
+                    dbname}));
+            } else {
+                throw new FileAlreadyExistsException(java.text.MessageFormat.format(I18N.getString("msg.file_exists"), new Object[]{
+                    dbname}));
+            }
             return null;
         }
         if (!new File(odbname).exists()) {
-            System.out.println("Not found " + new File(odbname).getAbsolutePath());
+            if (cli) {
+                System.out.println(java.text.MessageFormat.format(I18N.getString("msg.file_odb_not_found"), new Object[]{
+                    new File(odbname).getAbsolutePath()}));
+            } else {
+                throw new FileNotFoundException(java.text.MessageFormat.format(I18N.getString("msg.file_odb_not_found"), new Object[]{
+                    new File(odbname).getAbsolutePath()}));
+            }
             return null;
         }
         if (!new File(odbname).canWrite() || !new File(odbname).canRead()) {
-            System.out.println("Locked " + odbname);
+            if (cli) {
+                System.out.println(java.text.MessageFormat.format(I18N.getString("msg.file_locked"), new Object[]{
+                    odbname}));
+            } else {
+                throw new FileSystemException(java.text.MessageFormat.format(I18N.getString("msg.file_locked"), new Object[]{
+                    odbname}));
+            }
             return null;
         }
         try {

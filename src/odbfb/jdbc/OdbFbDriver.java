@@ -6,11 +6,14 @@
  */
 package odbfb.jdbc;
 
+import java.io.FileNotFoundException;
+import java.nio.file.FileSystemException;
 import java.sql.Connection;
 import java.sql.Driver;
 import java.sql.DriverPropertyInfo;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
+import java.util.Map;
 import java.util.Properties;
 import java.util.logging.Logger;
 import odbpack.CmdLineArgs;
@@ -28,43 +31,43 @@ public class OdbFbDriver extends FBDriver implements Driver {
 
     @Override
     public Logger getParentLogger() throws SQLFeatureNotSupportedException {
-        return super.getParentLogger(); //To change body of generated methods, choose Tools | Templates.
+        return super.getParentLogger();
     }
 
     @Override
     public boolean jdbcCompliant() {
-        return super.jdbcCompliant(); //To change body of generated methods, choose Tools | Templates.
+        return super.jdbcCompliant();
     }
 
     @Override
     public int getMinorVersion() {
-        return super.getMinorVersion(); //To change body of generated methods, choose Tools | Templates.
+        return super.getMinorVersion();
     }
 
     @Override
     public int getMajorVersion() {
-        return super.getMajorVersion(); //To change body of generated methods, choose Tools | Templates.
+        return super.getMajorVersion();
     }
 
     @Override
     public DriverPropertyInfo[] getPropertyInfo(String url, Properties info) throws SQLException {
-        return super.getPropertyInfo(url, info); //To change body of generated methods, choose Tools | Templates.
+        return super.getPropertyInfo(url, info);
     }
 
     @Override
     public boolean acceptsURL(String url) throws SQLException {
 
-        return url.startsWith("jdbc:odbfb:local:");//super.acceptsURL(url); //To change body of generated methods, choose Tools | Templates.
+        return url.startsWith("jdbc:odbfb:local:");//super.acceptsURL(url); 
     }
 
     @Override
     public FirebirdConnectionProperties newConnectionProperties() {
-        return super.newConnectionProperties(); //To change body of generated methods, choose Tools | Templates.
+        return super.newConnectionProperties();
     }
 
     @Override
     public FirebirdConnection connect(FirebirdConnectionProperties properties) throws SQLException {
-        return super.connect(properties); //To change body of generated methods, choose Tools | Templates.
+        return super.connect(properties);
     }
 
     @Override
@@ -72,9 +75,21 @@ public class OdbFbDriver extends FBDriver implements Driver {
         if (!url.startsWith("jdbc:odbfb:local:")) {
             throw new SQLException("No");
         }
+        /*for (Map.Entry<Object, Object> s : info.entrySet()) {
+            System.out.println(s.getKey() + " | " + s.getValue());
+        }*/
         String tmpfile;
-        tmpfile = Odbpack.unpackOdb(url.substring(17), null, new CmdLineArgs());
-        return (tmpfile == null ? null : new OdbFirebirdConnection((FBConnection) super.connect("jdbc:firebirdsql:local:" + tmpfile, info), url.substring(17), tmpfile, new CmdLineArgs()));
+        CmdLineArgs args = (url.substring(17).lastIndexOf('?') == -1 ? new CmdLineArgs() : new CmdLineArgs(url.substring(url.lastIndexOf('?') + 1).split("&"), /*null*/ new String[][]{}));
+        boolean readonly = args.getMainArgs().contains("readonly=true");
+        String odbfilename = (url.substring(17).lastIndexOf('?') == -1 ? url.substring(17) : url.substring(17, url.lastIndexOf('?')));
+        try {
+            tmpfile = Odbpack.unpackOdb(odbfilename, null,
+                    args);
+        } catch (FileNotFoundException | FileSystemException ex) {
+            throw new SQLException(ex);
+        }
+        return (tmpfile == null ? null : new OdbFirebirdConnection((FBConnection) super.connect("jdbc:firebirdsql:local:" + tmpfile, info),
+                odbfilename, tmpfile, args, readonly));
     }
 
 }

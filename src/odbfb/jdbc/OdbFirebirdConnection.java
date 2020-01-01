@@ -47,9 +47,18 @@ public class OdbFirebirdConnection implements FirebirdConnection, Synchronizable
     private String odbname;
     private String fbname;
     private CmdLineArgs cmdLineArgs;
+    private boolean odbReadOnly = false;
 
     private OdbFirebirdConnection() {
 
+    }
+
+    public OdbFirebirdConnection(FBConnection fbconn, String odbname, String fbname, CmdLineArgs args, boolean odbReadOnly) {
+        this.fbconn = fbconn;
+        this.odbname = odbname;
+        this.fbname = fbname;
+        this.cmdLineArgs = args;
+        this.odbReadOnly = odbReadOnly;
     }
 
     public OdbFirebirdConnection(FBConnection fbconn, String odbname, String fbname, CmdLineArgs args) {
@@ -57,6 +66,31 @@ public class OdbFirebirdConnection implements FirebirdConnection, Synchronizable
         this.odbname = odbname;
         this.fbname = fbname;
         this.cmdLineArgs = args;
+        this.odbReadOnly = false;
+    }
+
+    public OdbFirebirdConnection(FBConnection fbconn, String odbname, String fbname, boolean readOnly) {
+        this.fbconn = fbconn;
+        this.odbname = odbname;
+        this.fbname = fbname;
+        this.cmdLineArgs = new CmdLineArgs();
+        this.odbReadOnly = readOnly;
+    }
+
+    public OdbFirebirdConnection(FBConnection fbconn, String odbname, String fbname) {
+        this.fbconn = fbconn;
+        this.odbname = odbname;
+        this.fbname = fbname;
+        this.cmdLineArgs = new CmdLineArgs();
+        this.odbReadOnly = false;
+    }
+
+    public boolean isOdbReadOnly() {
+        return odbReadOnly;
+    }
+
+    public void setOdbReadOnly(boolean odbReadOnly) {
+        this.odbReadOnly = odbReadOnly;
     }
 
     public FBObjectListener.StatementListener getStatementListener() {
@@ -182,9 +216,10 @@ public class OdbFirebirdConnection implements FirebirdConnection, Synchronizable
 
     @Override
     public void close() throws SQLException {
-        //System.out.println("Close Connection");
         fbconn.close();
-        Odbpack.packOdb(odbname, fbname, cmdLineArgs);
+        if (!odbReadOnly) {
+            Odbpack.packOdb(odbname, fbname, cmdLineArgs);
+        }
         new File(fbname).delete();
     }
 
