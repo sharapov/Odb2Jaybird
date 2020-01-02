@@ -97,6 +97,16 @@ public class Odbpack {
                 }
                 return;
             }
+            /*if(!fOdbname.canWrite()){
+                if (cli) {
+                    System.out.println(java.text.MessageFormat.format(I18N.getString("msg.file_odb_canot_not_write"), new Object[]{
+                        fOdbname.getAbsolutePath()}));
+                } else {
+                    throw new FileNotFoundException(java.text.MessageFormat.format(I18N.getString("msg.file_odb_canot_not_write"), new Object[]{
+                        fOdbname.getAbsolutePath()}));
+                }
+                return;
+            }*/
             String odbpath = new File(fOdbname.getAbsolutePath()).getParent() + File.separatorChar
                     + fOdbname.getName();
             String odbpathbak = new File(fOdbname.getAbsolutePath()).getParent() + File.separatorChar

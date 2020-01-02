@@ -7,6 +7,12 @@
 package odbfb.jdbc;
 
 import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.RandomAccessFile;
+import java.nio.channels.FileChannel;
+import java.nio.channels.FileLock;
+import java.nio.file.FileSystemException;
 import java.sql.Array;
 import java.sql.Blob;
 import java.sql.CallableStatement;
@@ -23,6 +29,7 @@ import java.sql.Statement;
 import java.sql.Struct;
 import java.util.Map;
 import java.util.Properties;
+import java.util.ResourceBundle;
 import java.util.concurrent.Executor;
 import odbpack.CmdLineArgs;
 import odbpack.Odbpack;
@@ -48,17 +55,27 @@ public class OdbFirebirdConnection implements FirebirdConnection, Synchronizable
     private String fbname;
     private CmdLineArgs cmdLineArgs;
     private boolean odbReadOnly = false;
+    private RandomAccessFile lockedFile;
+    private FileChannel lockedFileChannel;
+    private FileLock lockFile;
+    private static final ResourceBundle I18N = ResourceBundle.getBundle("odbpack/locale/i18n");
 
     private OdbFirebirdConnection() {
 
     }
 
-    public OdbFirebirdConnection(FBConnection fbconn, String odbname, String fbname, CmdLineArgs args, boolean odbReadOnly) {
+    public OdbFirebirdConnection(FBConnection fbconn, String odbname, String fbname, CmdLineArgs args, boolean odbReadOnly) throws FileSystemException {
         this.fbconn = fbconn;
         this.odbname = odbname;
         this.fbname = fbname;
         this.cmdLineArgs = args;
         this.odbReadOnly = odbReadOnly;
+        if (!odbReadOnly) {
+            if (!lock(odbname)) {
+                throw new FileSystemException(java.text.MessageFormat.format(I18N.getString("msg.file_locked"), new Object[]{
+                    odbname}));
+            }
+        }
     }
 
     public OdbFirebirdConnection(FBConnection fbconn, String odbname, String fbname, CmdLineArgs args) {
@@ -69,12 +86,18 @@ public class OdbFirebirdConnection implements FirebirdConnection, Synchronizable
         this.odbReadOnly = false;
     }
 
-    public OdbFirebirdConnection(FBConnection fbconn, String odbname, String fbname, boolean readOnly) {
+    public OdbFirebirdConnection(FBConnection fbconn, String odbname, String fbname, boolean readOnly) throws FileSystemException {
         this.fbconn = fbconn;
         this.odbname = odbname;
         this.fbname = fbname;
         this.cmdLineArgs = new CmdLineArgs();
         this.odbReadOnly = readOnly;
+        if (!odbReadOnly) {
+            if (!lock(odbname)) {
+                throw new FileSystemException(java.text.MessageFormat.format(I18N.getString("msg.file_locked"), new Object[]{
+                    odbname}));
+            }
+        }
     }
 
     public OdbFirebirdConnection(FBConnection fbconn, String odbname, String fbname) {
@@ -218,6 +241,7 @@ public class OdbFirebirdConnection implements FirebirdConnection, Synchronizable
     public void close() throws SQLException {
         fbconn.close();
         if (!odbReadOnly) {
+            unlock();
             Odbpack.packOdb(odbname, fbname, cmdLineArgs);
         }
         new File(fbname).delete();
@@ -449,4 +473,31 @@ public class OdbFirebirdConnection implements FirebirdConnection, Synchronizable
         return fbconn.getSynchronizationObject();
     }
 
+    private boolean lock(String odbname) {
+        try {
+            File f = new File(odbname);
+            lockedFile = new RandomAccessFile(f, "rw");
+            lockedFileChannel = lockedFile.getChannel();
+            lockFile = lockedFileChannel.lock();
+        } catch (FileNotFoundException ex) {
+            return false;
+        } catch (IOException ex) {
+            try {
+                lockedFile.close();
+            } catch (IOException ex1) {
+            }
+            return false;
+        }
+        return true;
+    }
+
+    private void unlock() {
+        try {
+            lockFile.release();
+            lockedFileChannel.close();
+            lockedFile.close();
+        } catch (IOException ex) {
+            //Logger.getLogger(OdbFirebirdConnection.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
 }

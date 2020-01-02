@@ -13,7 +13,6 @@ import java.sql.Driver;
 import java.sql.DriverPropertyInfo;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
-import java.util.Map;
 import java.util.Properties;
 import java.util.logging.Logger;
 import odbpack.CmdLineArgs;
@@ -85,11 +84,11 @@ public class OdbFbDriver extends FBDriver implements Driver {
         try {
             tmpfile = Odbpack.unpackOdb(odbfilename, null,
                     args);
+            return (tmpfile == null ? null : new OdbFirebirdConnection((FBConnection) super.connect("jdbc:firebirdsql:local:" + tmpfile, info),
+                    odbfilename, tmpfile, args, readonly));
         } catch (FileNotFoundException | FileSystemException ex) {
             throw new SQLException(ex);
         }
-        return (tmpfile == null ? null : new OdbFirebirdConnection((FBConnection) super.connect("jdbc:firebirdsql:local:" + tmpfile, info),
-                odbfilename, tmpfile, args, readonly));
     }
 
 }
