@@ -7,3 +7,6 @@ Class odbfb.jdbc.OdbFbDriver
 URL example:
 odbfb.jdbc.OdbFbDriver
 Connection connection = DriverManager.getConnection("jdbc:odbfb:local:C:\\work\\CollectionFortest.odb", "SYSDBA", masterkey");
+
+For readonly
+Connection connection = DriverManager.getConnection("jdbc:odbfb:local:C:\\work\\CollectionFortest.odb?readonly=true", "SYSDBA", masterkey");
