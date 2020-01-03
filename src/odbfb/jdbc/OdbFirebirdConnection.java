@@ -12,6 +12,7 @@ import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.FileSystemException;
 import java.sql.Array;
 import java.sql.Blob;
@@ -31,6 +32,8 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.ResourceBundle;
 import java.util.concurrent.Executor;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import odbpack.CmdLineArgs;
 import odbpack.Odbpack;
 import org.firebirdsql.gds.DatabaseParameterBuffer;
@@ -242,7 +245,13 @@ public class OdbFirebirdConnection implements FirebirdConnection, Synchronizable
         fbconn.close();
         if (!odbReadOnly) {
             unlock();
-            Odbpack.packOdb(odbname, fbname, cmdLineArgs);
+            try {
+                Odbpack.packOdb(odbname, fbname, cmdLineArgs);
+            } catch (FileAlreadyExistsException ex) {
+                throw new SQLException(ex);
+            } catch (IOException ex) {
+                throw new SQLException(ex);
+            }
         }
         new File(fbname).delete();
     }

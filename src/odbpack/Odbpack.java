@@ -42,8 +42,9 @@ public class Odbpack {
      * @param args the command line arguments
      * @throws java.io.FileNotFoundException
      * @throws java.nio.file.FileSystemException
+     * @throws java.sql.SQLException
      */
-    public static void main(String[] args) throws FileNotFoundException, FileSystemException {
+    public static void main(String[] args) throws FileNotFoundException, FileSystemException, IOException, SQLException {
         String[][] expectedArgs = {{"o",
             "onbak",
             I18N.getString("option.dont_create_backup_odb")},
@@ -72,32 +73,31 @@ public class Odbpack {
         }
     }
 
-    static public void packOdb(String odbname, String dbname, CmdLineArgs cmdLineArgs) {
+    static public void packOdb(String odbname, String dbname, CmdLineArgs cmdLineArgs) throws FileNotFoundException, FileAlreadyExistsException, IOException, SQLException {
         File tmpfile = null;
         SimpleDateFormat dateFormet = new SimpleDateFormat("yyyy_MM_dd_HH_mm_ss");
         File fOdbname = new File(odbname);
-        try {
-            if (!new File(dbname).exists()) {
-                if (cli) {
-                    System.out.println(java.text.MessageFormat.format(I18N.getString("msg.file_not_found"), new Object[]{
-                        new File(dbname).getAbsolutePath()}));
-                } else {
-                    throw new FileNotFoundException(java.text.MessageFormat.format(I18N.getString("msg.file_not_found"), new Object[]{
-                        new File(dbname).getAbsolutePath()}));
-                }
-                return;
+        if (!new File(dbname).exists()) {
+            if (cli) {
+                System.out.println(java.text.MessageFormat.format(I18N.getString("msg.file_not_found"), new Object[]{
+                    new File(dbname).getAbsolutePath()}));
+            } else {
+                throw new FileNotFoundException(java.text.MessageFormat.format(I18N.getString("msg.file_not_found"), new Object[]{
+                    new File(dbname).getAbsolutePath()}));
             }
-            if (!fOdbname.exists()) {
-                if (cli) {
-                    System.out.println(java.text.MessageFormat.format(I18N.getString("msg.file_odb_not_found"), new Object[]{
-                        fOdbname.getAbsolutePath()}));
-                } else {
-                    throw new FileNotFoundException(java.text.MessageFormat.format(I18N.getString("msg.file_odb_not_found"), new Object[]{
-                        fOdbname.getAbsolutePath()}));
-                }
-                return;
+            return;
+        }
+        if (!fOdbname.exists()) {
+            if (cli) {
+                System.out.println(java.text.MessageFormat.format(I18N.getString("msg.file_odb_not_found"), new Object[]{
+                    fOdbname.getAbsolutePath()}));
+            } else {
+                throw new FileNotFoundException(java.text.MessageFormat.format(I18N.getString("msg.file_odb_not_found"), new Object[]{
+                    fOdbname.getAbsolutePath()}));
             }
-            /*if(!fOdbname.canWrite()){
+            return;
+        }
+        /*if(!fOdbname.canWrite()){
                 if (cli) {
                     System.out.println(java.text.MessageFormat.format(I18N.getString("msg.file_odb_canot_not_write"), new Object[]{
                         fOdbname.getAbsolutePath()}));
@@ -107,80 +107,78 @@ public class Odbpack {
                 }
                 return;
             }*/
-            String odbpath = new File(fOdbname.getAbsolutePath()).getParent() + File.separatorChar
-                    + fOdbname.getName();
-            String odbpathbak = new File(fOdbname.getAbsolutePath()).getParent() + File.separatorChar
-                    + StringUtils.removeExtension(fOdbname.getName()) + "_" + dateFormet.format(new Date()) + "." + StringUtils.getExtension(fOdbname.getName());
-            if (new File(odbpathbak).exists()) {
-                if (cli) {
-                    System.out.println(java.text.MessageFormat.format(I18N.getString("msg.file_exists"), new Object[]{
-                        odbpathbak}));
-                } else {
-                    throw new FileAlreadyExistsException(java.text.MessageFormat.format(I18N.getString("msg.file_exists"), new Object[]{
-                        odbpathbak}));
-                }
-                return;
+        String odbpath = new File(fOdbname.getAbsolutePath()).getParent() + File.separatorChar
+                + fOdbname.getName();
+        String odbpathbak = new File(fOdbname.getAbsolutePath()).getParent() + File.separatorChar
+                + StringUtils.removeExtension(fOdbname.getName()) + "_" + dateFormet.format(new Date()) + "." + StringUtils.getExtension(fOdbname.getName());
+        if (new File(odbpathbak).exists()) {
+            if (cli) {
+                System.out.println(java.text.MessageFormat.format(I18N.getString("msg.file_exists"), new Object[]{
+                    odbpathbak}));
+            } else {
+                throw new FileAlreadyExistsException(java.text.MessageFormat.format(I18N.getString("msg.file_exists"), new Object[]{
+                    odbpathbak}));
             }
-            Files.copy(Paths.get(odbpath), Paths.get(odbpathbak));
+            return;
+        }
+        Files.copy(Paths.get(odbpath), Paths.get(odbpathbak));
 
-            tmpfile = Files.createTempFile(Paths.get(System.getProperty("java.io.tmpdir")), "fb", ".fbk").toFile();
+        tmpfile = Files.createTempFile(Paths.get(System.getProperty("java.io.tmpdir")), "fb", ".fbk").toFile();
 
-            BackupManager backupManager = new FBBackupManager("EMBEDDED");
-            //backupManager.setHost("localhost");
-            //backupManager.setPort(3050);
-            //backupManager.getServerVersion();
-            backupManager.setUser("SYSDBA");
-            backupManager.setPassword("masterkey");
-            backupManager.setVerbose(false);
-            backupManager.setRestoreReplace(true);
-            backupManager.setDatabase(dbname);
-            backupManager.setBackupPath(tmpfile.getPath());
-            backupManager.backupDatabase();
-            try (
-                    ZipFile newzip = new ZipFile(odbpathbak)) {
-                try (ZipOutputStream zos = new ZipOutputStream(new FileOutputStream(fOdbname))) {
-                    Enumeration<? extends ZipEntry> entries = newzip.entries();
-                    byte[] buf1 = new byte[8192];
-                    int readed;
-                    while (entries.hasMoreElements()) {
-                        ZipEntry ze = entries.nextElement();
-                        if (ze.getName().equals("database/firebird.fbk")) {
-                            continue;
-                        }
-                        zos.putNextEntry(ze);
-                        InputStream inputStream = newzip.getInputStream(ze);
-                        //if(!ze.isDirectory()){
-                        while ((readed = inputStream.read(buf1)) > 0) {
-                            zos.write(buf1, 0, readed);
-                        }
-                        zos.closeEntry();
-                    }
-                    ZipEntry ze = new ZipEntry("database/firebird.fbk");
-                    zos.putNextEntry(ze);
-                    try (FileInputStream fi = new FileInputStream(tmpfile)) {
-                        byte[] buf = new byte[fi.available()];
-                        fi.read(buf);
-                        zos.write(buf);
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
-                    zos.closeEntry();
-                    zos.close();
-                } catch (Exception e) {
-                    e.printStackTrace();
+        BackupManager backupManager = new FBBackupManager("EMBEDDED");
+        //backupManager.setHost("localhost");
+        //backupManager.setPort(3050);
+        //backupManager.getServerVersion();
+        backupManager.setUser("SYSDBA");
+        backupManager.setPassword("masterkey");
+        backupManager.setVerbose(false);
+        backupManager.setRestoreReplace(true);
+        backupManager.setDatabase(dbname);
+        backupManager.setBackupPath(tmpfile.getPath());
+        backupManager.backupDatabase();
+        ZipFile obdbackzip = new ZipFile(odbpathbak);
+        try (
+                ZipOutputStream zos = new ZipOutputStream(new FileOutputStream(fOdbname))) {
+            Enumeration<? extends ZipEntry> entries = obdbackzip.entries();
+            byte[] buf1 = new byte[8192];
+            int readed;
+            while (entries.hasMoreElements()) {
+                ZipEntry ze = entries.nextElement();
+                if (ze.getName().equals("database/firebird.fbk")) {
+                    continue;
                 }
+                zos.putNextEntry(ze);
+                InputStream inputStream = obdbackzip.getInputStream(ze);
+                //if(!ze.isDirectory()){
+                while ((readed = inputStream.read(buf1)) > 0) {
+                    zos.write(buf1, 0, readed);
+                }
+                zos.closeEntry();
+            }
+            ZipEntry ze = new ZipEntry("database/firebird.fbk");
+            zos.putNextEntry(ze);
+            FileInputStream fi = new FileInputStream(tmpfile);
+            byte[] buf = new byte[fi.available()];
+            fi.read(buf);
+            zos.write(buf);
+            zos.closeEntry();
+            zos.close();
+            tmpfile.delete();
+        } catch (IOException ex) {
+            //ex.printStackTrace()
+            obdbackzip.close();
+            fOdbname.delete();
+            Files.copy(Paths.get(odbpathbak), Paths.get(odbpath));
+            if (tmpfile.exists()) {
                 tmpfile.delete();
             }
             if (!cmdLineArgs.getShortArgs().containsKey("o")) {
                 new File(odbpathbak).delete();
             }
-        } catch (SQLException | IOException ex) {
-            ex.printStackTrace();
-            if (tmpfile != null) {
-                if (tmpfile.exists()) {
-                    tmpfile.delete();
-                }
-            }
+            throw new IOException(ex);
+        }
+        if (!cmdLineArgs.getShortArgs().containsKey("o")) {
+            new File(odbpathbak).delete();
         }
     }
 
