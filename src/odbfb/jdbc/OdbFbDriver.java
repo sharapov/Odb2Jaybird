@@ -24,7 +24,8 @@ import org.firebirdsql.jdbc.FirebirdConnectionProperties;
 
 /**
  *
- * @author RZP16
+ * @Sharapov
+ *
  */
 public class OdbFbDriver extends FBDriver implements Driver {
 

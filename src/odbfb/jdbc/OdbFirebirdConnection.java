@@ -49,7 +49,8 @@ import org.firebirdsql.jdbc.Synchronizable;
 
 /**
  *
- * @author RZP16
+ * @Sharapov
+ * 
  */
 public class OdbFirebirdConnection implements FirebirdConnection, Synchronizable {
 

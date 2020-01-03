@@ -12,7 +12,8 @@ import java.util.Map;
 
 /**
  *
- * @author RZP16
+ * @Sharapov
+ *
  */
 public class CmdLineArgs {
 
