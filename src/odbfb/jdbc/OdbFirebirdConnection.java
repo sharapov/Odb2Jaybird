@@ -32,8 +32,6 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.ResourceBundle;
 import java.util.concurrent.Executor;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import odbpack.CmdLineArgs;
 import odbpack.Odbpack;
 import org.firebirdsql.gds.DatabaseParameterBuffer;

@@ -23,6 +23,8 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Enumeration;
 import java.util.ResourceBundle;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import java.util.zip.ZipOutputStream;
@@ -75,7 +77,7 @@ public class Odbpack {
     }
 
     static public void packOdb(String odbname, String dbname, CmdLineArgs cmdLineArgs) throws FileNotFoundException, FileAlreadyExistsException, IOException, SQLException {
-        File tmpfile = null;
+        File tmpfile;
         SimpleDateFormat dateFormet = new SimpleDateFormat("yyyy_MM_dd_HH_mm_ss");
         File fOdbname = new File(odbname);
         if (!new File(dbname).exists()) {
@@ -183,7 +185,7 @@ public class Odbpack {
         }
     }
 
-    static public String unpackOdb(String odbname, String dbname, CmdLineArgs cmdLineArgs) throws FileNotFoundException, FileAlreadyExistsException, FileSystemException {
+    static public String unpackOdb(String odbname, String dbname, CmdLineArgs cmdLineArgs) throws FileNotFoundException, FileAlreadyExistsException, FileSystemException, SQLException, IOException {
         if (dbname != null && new File(dbname).exists()) {
             if (cli) {
                 System.out.println(java.text.MessageFormat.format(I18N.getString("msg.file_exists"), new Object[]{
@@ -214,37 +216,37 @@ public class Odbpack {
             }
             return null;
         }
-        try {
-            try (ZipFile zf = new ZipFile(odbname)) {
-                File tmpfile;
-                ZipEntry ze = zf.getEntry("database/firebird.fbk");
-                if (!ze.isDirectory()) {
+        File tmpfile = null;
+        try (ZipFile zf = new ZipFile(odbname)) {
+            ZipEntry ze = zf.getEntry("database/firebird.fbk");
+            if (!ze.isDirectory()) {
 
-                    write(zf.getInputStream(ze),
-                            new BufferedOutputStream(new FileOutputStream(
-                                    tmpfile = Files.createTempFile(Paths.get(System.getProperty("java.io.tmpdir")), "fb", ".fbk").toFile()
-                            )));
-                    BackupManager restoreManager = new FBBackupManager("EMBEDDED");
-                    restoreManager.setUser("SYSDBA");
-                    restoreManager.setPassword("masterkey");
-                    restoreManager.setVerbose(false);
-                    restoreManager.setRestoreReplace(false);
-                    restoreManager.setDatabase(dbname = (dbname == null ? Files.createTempDirectory(Paths.get(System.getProperty("java.io.tmpdir")), "fbtmp").toAbsolutePath().toString() + File.separatorChar + "tmpfb" : dbname));
-                    restoreManager.setBackupPath(tmpfile.getPath());
-                    //restoreManager.setLogger(System.out);
-                    try {
-                        restoreManager.restoreDatabase();
-                    } catch (SQLException ex) {
-                        ex.printStackTrace();
-                        tmpfile.delete();
-                        //fbFileName.delete();
-                        //fbFileName = null;
-                    }
-                    tmpfile.delete();
-                }
+                write(zf.getInputStream(ze),
+                        new BufferedOutputStream(new FileOutputStream(
+                                tmpfile = Files.createTempFile(Paths.get(System.getProperty("java.io.tmpdir")), "fb", ".fbk").toFile()
+                        )));
+                BackupManager restoreManager = new FBBackupManager("EMBEDDED");
+                restoreManager.setUser("SYSDBA");
+                restoreManager.setPassword("masterkey");
+                restoreManager.setVerbose(false);
+                restoreManager.setRestoreReplace(false);
+                restoreManager.setDatabase(dbname = (dbname == null ? Files.createTempDirectory(Paths.get(System.getProperty("java.io.tmpdir")), "fbtmp").toAbsolutePath().toString() + File.separatorChar + "tmpfb" : dbname));
+                restoreManager.setBackupPath(tmpfile.getPath());
+                //restoreManager.setLogger(System.out);
+                //try {
+                restoreManager.restoreDatabase();
+                //} catch (SQLException ex) {
+                //    ex.printStackTrace();
+                //fbFileName.delete();
+                //fbFileName = null;
+                //}
+                tmpfile.delete();
             }
-        } catch (IOException ex) {
-            ex.printStackTrace();
+        } catch (SQLException ex) {
+            if (tmpfile != null) {
+                tmpfile.delete();
+            }
+            throw new SQLException(ex);
         }
         return dbname;
     }

@@ -7,6 +7,7 @@
 package odbfb.jdbc;
 
 import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.nio.file.FileSystemException;
 import java.sql.Connection;
 import java.sql.Driver;
@@ -14,6 +15,7 @@ import java.sql.DriverPropertyInfo;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.util.Properties;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 import odbpack.CmdLineArgs;
 import odbpack.Odbpack;
@@ -88,6 +90,8 @@ public class OdbFbDriver extends FBDriver implements Driver {
             return (tmpfile == null ? null : new OdbFirebirdConnection((FBConnection) super.connect("jdbc:firebirdsql:local:" + tmpfile, info),
                     odbfilename, tmpfile, args, readonly));
         } catch (FileNotFoundException | FileSystemException ex) {
+            throw new SQLException(ex);
+        } catch (IOException ex) {
             throw new SQLException(ex);
         }
     }
