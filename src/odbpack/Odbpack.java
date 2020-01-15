@@ -47,14 +47,14 @@ public class Odbpack {
      */
     public static void main(String[] args) throws FileNotFoundException, FileSystemException, IOException, SQLException {
         String[][] expectedArgs = {{"o",
-            "onbak",
-            I18N.getString("option.dont_create_backup_odb")},
+            "obak",
+            I18N.getString("option.create_backup_odb")}/*,
         {"d",
             "dnbak",
             I18N.getString("option.dont_create_backup_fdb")},
         {"r",
             "removefdb",
-            I18N.getString("option.remove_fdb")}
+            I18N.getString("option.remove_fdb")}*/
         };
         cli = true;
         CmdLineArgs cmdLineArgs = new CmdLineArgs(args, expectedArgs);
@@ -71,6 +71,9 @@ public class Odbpack {
             }
         } else {
             System.out.println(I18N.getString("rule.odbpack"));
+            for (String[] s : expectedArgs) {
+                System.out.println("{-" + s[0] + "|--" + s[1] + "} " + s[2] + "\n");
+            }
         }
     }
 
@@ -165,6 +168,7 @@ public class Odbpack {
             zos.closeEntry();
             zos.close();
             tmpfile.delete();
+            obdbackzip.close();
         } catch (IOException ex) {
             //ex.printStackTrace()
             obdbackzip.close();
@@ -173,12 +177,12 @@ public class Odbpack {
             if (tmpfile.exists()) {
                 tmpfile.delete();
             }
-            if (!cmdLineArgs.getShortArgs().containsKey("o")) {
+            if (!cmdLineArgs.getShortArgs().containsKey("o") && !cmdLineArgs.getLongArgs().containsKey("obak")) {
                 new File(odbpathbak).delete();
             }
             throw new IOException(ex);
         }
-        if (!cmdLineArgs.getShortArgs().containsKey("o")) {
+        if (!cmdLineArgs.getShortArgs().containsKey("o") && !cmdLineArgs.getLongArgs().containsKey("obak")) {
             new File(odbpathbak).delete();
         }
     }
