@@ -17,7 +17,9 @@ import java.io.OutputStream;
 import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.FileSystemException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.attribute.FileAttribute;
 import java.sql.SQLException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -48,13 +50,13 @@ public class Odbpack {
     public static void main(String[] args) throws FileNotFoundException, FileSystemException, IOException, SQLException {
         String[][] expectedArgs = {{"o",
             "obak",
-            I18N.getString("option.create_backup_odb")}/*,
-        {"d",
+            I18N.getString("option.create_backup_odb")},
+        /*{"d",
             "dnbak",
-            I18N.getString("option.dont_create_backup_fdb")},
+            I18N.getString("option.create_backup_fdb")},*/
         {"r",
-            "removefdb",
-            I18N.getString("option.remove_fdb")}*/
+            "dontremovefdb",
+            I18N.getString("option.dont_remove_fdb")}
         };
         cli = true;
         CmdLineArgs cmdLineArgs = new CmdLineArgs(args, expectedArgs);
@@ -72,7 +74,7 @@ public class Odbpack {
         } else {
             System.out.println(I18N.getString("rule.odbpack"));
             for (String[] s : expectedArgs) {
-                System.out.println("{-" + s[0] + "|--" + s[1] + "} " + s[2] + "\n");
+                System.out.println("{-" + s[0] + "|--" + s[1] + "} " + s[2]);
             }
         }
     }
@@ -141,6 +143,7 @@ public class Odbpack {
         backupManager.setBackupPath(tmpfile.getPath());
         backupManager.backupDatabase();
         ZipFile obdbackzip = new ZipFile(odbpathbak);
+        FileInputStream fi = null;
         try (
                 ZipOutputStream zos = new ZipOutputStream(new FileOutputStream(fOdbname))) {
             Enumeration<? extends ZipEntry> entries = obdbackzip.entries();
@@ -161,19 +164,23 @@ public class Odbpack {
             }
             ZipEntry ze = new ZipEntry("database/firebird.fbk");
             zos.putNextEntry(ze);
-            FileInputStream fi = new FileInputStream(tmpfile);
+            fi = new FileInputStream(tmpfile);
             byte[] buf = new byte[fi.available()];
             fi.read(buf);
             zos.write(buf);
             zos.closeEntry();
             zos.close();
-            tmpfile.delete();
             obdbackzip.close();
+            fi.close();
+            tmpfile.delete();
         } catch (IOException ex) {
             //ex.printStackTrace()
             obdbackzip.close();
             fOdbname.delete();
             Files.copy(Paths.get(odbpathbak), Paths.get(odbpath));
+            if (fi != null) {
+                fi.close();
+            }
             if (tmpfile.exists()) {
                 tmpfile.delete();
             }
@@ -184,6 +191,9 @@ public class Odbpack {
         }
         if (!cmdLineArgs.getShortArgs().containsKey("o") && !cmdLineArgs.getLongArgs().containsKey("obak")) {
             new File(odbpathbak).delete();
+        }
+        if (!cmdLineArgs.getShortArgs().containsKey("r") && !cmdLineArgs.getLongArgs().containsKey("dontremovefdb")) {
+            new File(dbname).delete();
         }
     }
 
@@ -232,7 +242,11 @@ public class Odbpack {
                 restoreManager.setPassword("masterkey");
                 restoreManager.setVerbose(false);
                 restoreManager.setRestoreReplace(false);
-                restoreManager.setDatabase(dbname = (dbname == null ? Files.createTempDirectory(Paths.get(System.getProperty("java.io.tmpdir")), "fbtmp").toAbsolutePath().toString() + File.separatorChar + "tmpfb" : dbname));
+                if (dbname == null) {
+                    dbname = File.createTempFile("fbd", ".fdb", Paths.get(System.getProperty("java.io.tmpdir")).toFile()).getAbsolutePath();
+                    new File(dbname).delete();
+                }
+                restoreManager.setDatabase(dbname);
                 restoreManager.setBackupPath(tmpfile.getPath());
                 //restoreManager.setLogger(System.out);
                 //try {
@@ -242,13 +256,15 @@ public class Odbpack {
                 //fbFileName.delete();
                 //fbFileName = null;
                 //}
-                tmpfile.delete();
             }
         } catch (SQLException ex) {
             if (tmpfile != null) {
                 tmpfile.delete();
             }
             throw new SQLException(ex);
+        }
+        if (tmpfile != null) {
+            tmpfile.delete();
         }
         return dbname;
     }

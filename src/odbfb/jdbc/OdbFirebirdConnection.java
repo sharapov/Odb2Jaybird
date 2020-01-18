@@ -48,7 +48,7 @@ import org.firebirdsql.jdbc.Synchronizable;
 /**
  *
  * @Sharapov
- * 
+ *
  */
 public class OdbFirebirdConnection implements FirebirdConnection, Synchronizable {
 
@@ -252,7 +252,10 @@ public class OdbFirebirdConnection implements FirebirdConnection, Synchronizable
                 throw new SQLException(ex);
             }
         }
-        new File(fbname).delete();
+        if (!cmdLineArgs.getShortArgs().containsKey("r") && !cmdLineArgs.getLongArgs().containsKey("dontremovefdb")) {
+            new File(fbname).delete();
+        }
+        //new File(fbname).delete();
     }
 
     @Override
