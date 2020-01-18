@@ -14,6 +14,7 @@ Connection connection = DriverManager.getConnection("jdbc:odbfb:local:C:\\work\\
 Command line interface
 
 odbpack {unpack|pack} name.odb name.fdb
+
 {-o|--obak} create backup file for odb (default=no)
 
 {-r|--dontremovefdb} dont remove fdb (default=remove)
