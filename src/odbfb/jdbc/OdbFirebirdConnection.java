@@ -110,6 +110,22 @@ public class OdbFirebirdConnection implements FirebirdConnection, Synchronizable
         this.odbReadOnly = false;
     }
 
+    public FBConnection getFbconn() {
+        return fbconn;
+    }
+
+    public String getOdbname() {
+        return odbname;
+    }
+
+    /**
+     * Name of temporary firebirdsql file/
+     * @return name temporary file
+     */
+    public String getFbname() {
+        return fbname;
+    }
+
     public boolean isOdbReadOnly() {
         return odbReadOnly;
     }
